@@ -26,9 +26,9 @@ type Arduino struct {
 type Message struct {
 	Device []DeviceData `json:"device,omitempty"`
 	ACK    []DeviceData `json:"ACK,omitempty"`
-	Error  struct {
+	Error  *struct {
 		Code int
-	} `json:"Errormomitempty"`
+	} `json:"Error,omitempty"`
 }
 
 type DeviceData struct {
