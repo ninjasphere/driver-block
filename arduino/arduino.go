@@ -18,9 +18,10 @@ var log = logger.GetLogger("arduino")
 // Ninja Block shield and the Ninja Pi Crust
 type Arduino struct {
 	sync.Mutex
-	Incoming chan Message
-	port     io.ReadWriteCloser
-	acks     chan []DeviceData
+	Incoming     chan Message
+	onDeviceData []func(DeviceData)
+	port         io.ReadWriteCloser
+	acks         chan []DeviceData
 }
 
 type Message struct {
@@ -83,6 +84,15 @@ func Connect(path string, baudRate int) (arduino *Arduino, err error) {
 				log.Warningf("Incoming channel is full. Ignoring message: %s", str)
 			}
 
+			for _, cb := range arduino.onDeviceData {
+				for _, data := range msg.Device {
+					go cb(data)
+				}
+				for _, data := range msg.ACK {
+					go cb(data)
+				}
+			}
+
 		}
 	}()
 
@@ -106,6 +116,10 @@ func (a *Arduino) GetVersion() (string, error) {
 	}
 
 	return ack[0].DA.(string), nil
+}
+
+func (a *Arduino) OnDeviceData(cb func(DeviceData)) {
+	a.onDeviceData = append(a.onDeviceData, cb)
 }
 
 func (a *Arduino) WriteDeviceData(data ...DeviceData) error {

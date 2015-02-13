@@ -1,0 +1,10 @@
+{
+  "id": "com.ninjablocks.arduino",
+  "name": "Block Arduino Driver",
+  "version": "0.1.0",
+  "description": "Allows control of Nina's eyes, and two-way 433mhz comms",
+  "main": "driver-block",
+  "author": "Elliot Shepherd <elliot@ninjablocks.com>",
+  "license": "MIT",
+  "maxMemory": 10
+}
