@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/ninjasphere/go-ninja/logger"
 	"github.com/ninjasphere/goserial"
 )
@@ -25,11 +24,11 @@ type Arduino struct {
 }
 
 type Message struct {
-	Device []DeviceData `json:"device"`
-	ACK    []DeviceData
+	Device []DeviceData `json:"device,omitempty"`
+	ACK    []DeviceData `json:"ACK,omitempty"`
 	Error  struct {
 		Code int
-	}
+	} `json:"Errormomitempty"`
 }
 
 type DeviceData struct {
@@ -62,14 +61,12 @@ func Connect(path string, baudRate int) (arduino *Arduino, err error) {
 				continue
 			}
 
-			log.Infof("Json: %s", str)
+			log.Infof("Incoming: %s", str)
 			var msg Message
 			err = json.Unmarshal([]byte(str), &msg)
 
 			if err != nil {
-				log.Warningf("Error reading serial port: %s", err)
-			} else {
-				spew.Dump(msg)
+				log.Warningf("Error parsing json: %s", err)
 			}
 
 			if msg.ACK != nil {
@@ -92,22 +89,49 @@ func Connect(path string, baudRate int) (arduino *Arduino, err error) {
 	return
 }
 
-func (a *Arduino) Write(message *Message) error {
+func (a *Arduino) GetVersion() (string, error) {
+	ack, err := a.Write(Message{
+		Device: []DeviceData{
+			DeviceData{
+				G:  "0",
+				V:  0,
+				D:  1003,
+				DA: "VNO",
+			},
+		},
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return ack[0].DA.(string), nil
+}
+
+func (a *Arduino) WriteDeviceData(data ...DeviceData) error {
+	_, err := a.Write(Message{
+		Device: data,
+	})
+
+	return err
+}
+
+func (a *Arduino) Write(message Message) ([]DeviceData, error) {
 	a.Lock()
 	defer a.Unlock()
 
 	j, _ := json.Marshal(message)
+
+	log.Debugf("Outgoing: %s", j)
 
 	a.port.Write(j)
 	a.port.Write([]byte("\n"))
 
 	select {
 	case ack := <-a.acks:
-		// Check data equals what we sent?
-		spew.Dump("GOT ACK", ack)
-		return nil
+		return ack, nil
 	case <-time.After(time.Second * 2):
-		return fmt.Errorf("Arduino write timed out after 2 seconds")
+		return nil, fmt.Errorf("Arduino write timed out after 2 seconds")
 	}
 
 }
